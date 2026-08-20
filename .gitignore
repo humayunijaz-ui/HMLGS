@@ -1,0 +1,4 @@
+/uploads/imports/*
+!/uploads/imports/.gitkeep
+.env
+*.log
