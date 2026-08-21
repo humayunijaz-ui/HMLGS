@@ -138,7 +138,7 @@ require __DIR__ . '/../includes/navbar.php';
     <table class="table table-hover align-middle">
       <thead>
         <tr>
-          <th>Form No.</th><th>Name</th><th>Gender</th><th>Dept</th><th>Program</th>
+          <th>Form No.</th><th>Name</th><th>Gender</th><th>Dept</th><th>Program</th><th>District</th>
           <th>%</th><th>Status</th><th>Eligible</th><th>Actions</th>
         </tr>
       </thead>
@@ -150,6 +150,7 @@ require __DIR__ . '/../includes/navbar.php';
           <td><?= e($r['gender']) ?></td>
           <td><?= e($r['department_name']) ?></td>
           <td><?= e($r['program_name']) ?></td>
+          <td><?= e($r['district']) ?></td>
           <td><?= e($r['percentage']) ?></td>
           <td><span class="badge badge-status bg-info text-dark"><?= e($r['status']) ?></span></td>
           <td>
@@ -177,7 +178,7 @@ require __DIR__ . '/../includes/navbar.php';
         </tr>
       <?php endforeach; ?>
       <?php if (empty($rows)): ?>
-        <tr><td colspan="9" class="text-center text-muted py-4">No applications found.</td></tr>
+        <tr><td colspan="10" class="text-center text-muted py-4">No applications found.</td></tr>
       <?php endif; ?>
       </tbody>
     </table>

@@ -17,6 +17,11 @@ INSERT INTO departments (department_name, department_code, status) VALUES
 ('Data Science', 'DS', 'Active'),
 ('Artificial Intelligence', 'AI', 'Active');
 
+INSERT INTO admission_quotas (quota_name, quota_code, status) VALUES
+('Open Merit', 'OPEN', 'Active'),
+('Self-Finance', 'SELF', 'Active'),
+('Reserved', 'RSVD', 'Active');
+
 INSERT INTO programs (program_name, program_code, department_id, degree, status) VALUES
 ('BS Computer Science', 'BSCS', 1, 'BS', 'Active'),
 ('BS Software Engineering', 'BSSE', 2, 'BS', 'Active'),
