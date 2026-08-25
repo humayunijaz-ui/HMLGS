@@ -36,9 +36,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
     $stmt = $pdo->prepare(
         "INSERT INTO hostel_applications
          (hostel_session_id, form_no, student_name, father_name, cnic_b_form, gender, contact_number, email,
-          address, district, province, domicile, department_id, program_id, degree, session, semester,
+          address, district, province, domicile, department_id, program_id, admission_quota_id, degree, session, semester,
           admission_year, percentage, status)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'Eligible')"
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'Eligible')"
     );
     $histStmt = $pdo->prepare(
         "INSERT INTO application_status_history (application_id, old_status, new_status, changed_by, remarks)
@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
                 $row['form_no'], $row['student_name'], $row['father_name'], $row['cnic_b_form'],
                 $row['gender'], $row['contact_number'], $row['email'], $row['address'],
                 $row['district'], $row['province'], $row['domicile'],
-                $row['department_id'], $row['program_id'], $row['degree'],
+                $row['department_id'], $row['program_id'], $row['admission_quota_id'], $row['degree'],
                 $row['session'], $row['semester'], $row['admission_year'], $row['percentage'],
             ]);
             $newId = $pdo->lastInsertId();
@@ -162,6 +162,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'uploa
             $rowErrors[] = "Unknown program '{$raw['program']}' for department '{$raw['department']}'";
         }
 
+        // Admission quota: match by name or code; blank defaults to Open Merit
+        $quotaId = null;
+        $quotaInput = trim($raw['admission_quota'] ?? '');
+        if ($quotaInput === '') {
+            $quotaInput = 'Open Merit';
+        }
+        try {
+            $qStmt = $pdo->prepare("SELECT id FROM admission_quotas WHERE quota_name = ? OR quota_code = ? LIMIT 1");
+            $qStmt->execute([$quotaInput, strtoupper($quotaInput)]);
+            $quotaId = $qStmt->fetchColumn() ?: null;
+            if (!$quotaId) {
+                $rowErrors[] = "Unknown admission quota: {$quotaInput}";
+            }
+        } catch (PDOException $e) {
+            // admission_quotas table not migrated yet — skip quota assignment silently
+            $quotaId = null;
+        }
+
         $record = [
             'form_no'        => $formNo,
             'student_name'   => $raw['student_name'] ?? '',
@@ -176,6 +194,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'uploa
             'domicile'       => $raw['domicile'] ?? '',
             'department_id'  => $deptId,
             'program_id'     => $progId,
+            'admission_quota_id' => $quotaId,
             'degree'         => $raw['degree'] ?? '',
             'session'        => $raw['session'] ?? '',
             'semester'       => $raw['semester'] ?? '',
@@ -235,8 +254,8 @@ require __DIR__ . '/../includes/navbar.php';
     </div>
     <p class="small text-muted mb-2">
       Required columns: <code>form_no, student_name, cnic_b_form, gender, department, program, percentage</code>.
-      Optional: <code>father_name, contact_number, email, address, district, province, domicile, degree, session, semester, admission_year</code>.
-      <code>department</code> / <code>program</code> may be the name or the code.
+      Optional: <code>father_name, contact_number, email, address, district, province, domicile, degree, session, semester, admission_year, admission_quota</code>.
+      <code>department</code> / <code>program</code> / <code>admission_quota</code> may be the name or the code. If <code>admission_quota</code> is left blank, it defaults to "Open Merit".
     </p>
     <form method="post" enctype="multipart/form-data" class="row g-2">
       <?= csrf_field() ?>

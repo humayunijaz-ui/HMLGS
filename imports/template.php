@@ -16,13 +16,13 @@ $sampleProg = $sampleProg ?: 'BSCS';
 $columns = [
     'form_no', 'student_name', 'father_name', 'cnic_b_form', 'gender',
     'contact_number', 'email', 'address', 'district', 'province', 'domicile',
-    'department', 'program', 'degree', 'session', 'semester', 'admission_year', 'percentage',
+    'department', 'program', 'admission_quota', 'degree', 'session', 'semester', 'admission_year', 'percentage',
 ];
 
 $exampleRow = [
     'H-001', 'Ali Ahmed', 'Ahmed Khan', '12345-1234567-1', 'Male',
     '03001234567', 'ali.ahmed@example.com', 'Street 1, Model Town', 'Lahore', 'Punjab', 'Punjab',
-    $sampleDept, $sampleProg, 'BS', 'Fall 2026', '1', '2026', '85.50',
+    $sampleDept, $sampleProg, 'Open Merit', 'BS', 'Fall 2026', '1', '2026', '85.50',
 ];
 
 header('Content-Type: text/csv; charset=utf-8');

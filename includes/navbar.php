@@ -29,6 +29,8 @@
             <li><a class="dropdown-item" href="<?= BASE_URL ?>sessions/index.php">Hostel Sessions</a></li>
             <li><a class="dropdown-item" href="<?= BASE_URL ?>departments/index.php">Departments</a></li>
             <li><a class="dropdown-item" href="<?= BASE_URL ?>programs/index.php">Programs</a></li>
+            <li><a class="dropdown-item" href="<?= BASE_URL ?>quotas/index.php">Admission Quotas</a></li>
+            <li><a class="dropdown-item" href="<?= BASE_URL ?>quotas/matrix.php">Quota Seat Matrix</a></li>
           </ul>
         </li>
         <li class="nav-item"><a class="nav-link" href="<?= BASE_URL ?>reports/index.php"><i class="bi bi-file-earmark-bar-graph"></i> Reports</a></li>
