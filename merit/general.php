@@ -3,7 +3,7 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../auth/check_auth.php';
 require_once __DIR__ . '/../includes/merit_helper.php';
 
-$pageTitle = 'Gender-wise Merit List';
+$pageTitle = 'General Merit List';
 
 $sessions = $pdo->query("SELECT * FROM hostel_sessions ORDER BY id DESC")->fetchAll();
 $activeSession = get_active_session($pdo);
@@ -11,11 +11,6 @@ $activeSession = get_active_session($pdo);
 $selectedSessionId = isset($_GET['hostel_session_id']) && $_GET['hostel_session_id'] !== ''
     ? (int)$_GET['hostel_session_id']
     : ($activeSession['id'] ?? null);
-
-$selectedGender = $_GET['gender'] ?? ($_POST['gender'] ?? 'Male');
-if (!in_array($selectedGender, ['Male', 'Female'], true)) {
-    $selectedGender = 'Male';
-}
 
 $rows = [];
 $meritListId = null;
@@ -27,43 +22,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'gener
     verify_csrf();
 
     $genSessionId = (int)($_POST['hostel_session_id'] ?? 0);
-    $genGender = in_array($_POST['gender'] ?? '', ['Male', 'Female'], true) ? $_POST['gender'] : 'Male';
-
     if (!$genSessionId) {
         flash_set('error', 'Please select a hostel session.');
-        redirect('merit/gender_wise.php');
+        redirect('merit/general.php');
     }
 
-    $result = generate_merit_list($pdo, $genSessionId, 'Gender', ['gender' => $genGender], current_user_id());
-    audit_log($pdo, 'Generate gender-wise merit list', 'merit_lists', $result['merit_list_id'], "{$genGender} merit list, session #{$genSessionId}, " . count($result['rows']) . ' entries');
+    $result = generate_merit_list($pdo, $genSessionId, 'General', [], current_user_id());
+    audit_log($pdo, 'Generate general merit list', 'merit_lists', $result['merit_list_id'], "session #{$genSessionId}, " . count($result['rows']) . ' entries');
 
-    // Email every listed student their merit-list notification with a link to the student portal
-    $emailed = 0;
-    foreach ($result['rows'] as $i => $row) {
-        if (empty($row['email'])) continue;
-        $rank = $i + 1;
-        $subject = 'Hostel General Merit List Published - ' . APP_NAME;
-        $body = '<p>Dear ' . e($row['student_name']) . ',</p>'
-              . '<p>The Hostel General Merit List (' . e($genGender) . ') has been published.</p>'
-              . '<p><strong>Your Rank:</strong> ' . $rank . '<br>'
-              . '<strong>Percentage:</strong> ' . number_format($row['percentage'], 2) . '%</p>'
-              . '<p>Please log in to the student portal to review your standing, including your admission-quota-wise position:</p>'
-              . '<p><a href="' . SITE_URL . 'auth/student_login.php">' . SITE_URL . 'auth/student_login.php</a></p>'
-              . '<p>Use your CNIC / B-Form number as both the username and password.</p>'
-              . '<p>Regards,<br>' . e(APP_NAME) . '</p>';
-        if (send_email($row['email'], $row['student_name'], $subject, $body)) {
-            $emailed++;
-        }
-    }
-    audit_log($pdo, 'Merit list notification emails', 'merit_lists', $result['merit_list_id'], "{$emailed} of " . count($result['rows']) . ' email(s) sent');
-
-    flash_set('success', ucfirst(strtolower($genGender)) . ' merit list generated (' . count($result['rows']) . ' eligible applicant(s)). ' . $emailed . ' notification email(s) sent.');
-    redirect('merit/gender_wise.php?hostel_session_id=' . $genSessionId . '&gender=' . urlencode($genGender) . '&merit_list_id=' . $result['merit_list_id']);
+    flash_set('success', 'General merit list generated (' . count($result['rows']) . ' eligible applicant(s)).');
+    redirect('merit/general.php?hostel_session_id=' . $genSessionId . '&merit_list_id=' . $result['merit_list_id']);
 }
 
 // ------------------------------------------------------------
-// Display: either a specific generated list, or the latest one
-// for this session + gender, if any exists.
+// Display: either a specific generated list, or the latest one for this session
 // ------------------------------------------------------------
 if ($selectedSessionId) {
     if (!empty($_GET['merit_list_id'])) {
@@ -71,10 +43,10 @@ if ($selectedSessionId) {
     } else {
         $stmt = $pdo->prepare(
             "SELECT id FROM merit_lists
-             WHERE hostel_session_id = ? AND list_type = 'Gender' AND gender = ?
+             WHERE hostel_session_id = ? AND list_type = 'General'
              ORDER BY generated_at DESC LIMIT 1"
         );
-        $stmt->execute([$selectedSessionId, $selectedGender]);
+        $stmt->execute([$selectedSessionId]);
         $meritListId = $stmt->fetchColumn() ?: null;
     }
 
@@ -87,7 +59,7 @@ require __DIR__ . '/../includes/header.php';
 require __DIR__ . '/../includes/navbar.php';
 ?>
 <div class="container-fluid py-4">
-  <h4 class="mb-3">Gender-wise Merit List</h4>
+  <h4 class="mb-3">General Merit List</h4>
 
   <?php if ($m = flash_get('success')): ?><div class="alert alert-success alert-dismissible fade show"><?= e($m) ?><button class="btn-close" data-bs-dismiss="alert"></button></div><?php endif; ?>
   <?php if ($m = flash_get('error')): ?><div class="alert alert-danger alert-dismissible fade show"><?= e($m) ?><button class="btn-close" data-bs-dismiss="alert"></button></div><?php endif; ?>
@@ -105,13 +77,6 @@ require __DIR__ . '/../includes/navbar.php';
           <?php endforeach; ?>
         </select>
       </div>
-      <div class="col-md-3">
-        <label class="form-label mb-1">Gender</label>
-        <select name="gender" class="form-select" onchange="this.form.submit()">
-          <option value="Male" <?= $selectedGender === 'Male' ? 'selected' : '' ?>>Male</option>
-          <option value="Female" <?= $selectedGender === 'Female' ? 'selected' : '' ?>>Female</option>
-        </select>
-      </div>
     </form>
 
     <?php if ($selectedSessionId): ?>
@@ -119,12 +84,11 @@ require __DIR__ . '/../includes/navbar.php';
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="generate">
         <input type="hidden" name="hostel_session_id" value="<?= $selectedSessionId ?>">
-        <input type="hidden" name="gender" value="<?= e($selectedGender) ?>">
         <button class="btn btn-primary btn-sm">
-          <i class="bi bi-arrow-repeat"></i> Generate / Regenerate <?= e($selectedGender) ?> Merit List
+          <i class="bi bi-arrow-repeat"></i> Generate / Regenerate General Merit List
         </button>
       </form>
-      <span class="text-muted small ms-2">Ranks eligible <?= strtolower($selectedGender) ?> applicants by existing percentage. Regenerating creates a new snapshot.</span>
+      <span class="text-muted small ms-2">Ranks all eligible applicants of this session (any gender/department/program) by existing percentage. Regenerating creates a new snapshot.</span>
     <?php endif; ?>
   </div>
 
@@ -132,12 +96,12 @@ require __DIR__ . '/../includes/navbar.php';
     <div class="alert alert-warning">Please select a hostel session.</div>
   <?php elseif (empty($rows)): ?>
     <div class="alert alert-info">
-      No <?= strtolower($selectedGender) ?> merit list has been generated for this session yet. Click "Generate" above to create one from eligible applicants.
+      No general merit list has been generated for this session yet. Click "Generate" above to create one from eligible applicants.
     </div>
   <?php else: ?>
     <div class="card p-3">
       <div class="d-flex justify-content-between align-items-center mb-2">
-        <h6 class="mb-0"><?= e($selectedGender) ?> General Merit List &mdash; <?= count($rows) ?> applicant(s)</h6>
+        <h6 class="mb-0">General Merit List &mdash; <?= count($rows) ?> applicant(s)</h6>
         <button class="btn btn-outline-secondary btn-sm" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
       </div>
       <div class="table-responsive">
@@ -147,6 +111,7 @@ require __DIR__ . '/../includes/navbar.php';
               <th>Rank</th>
               <th>Form No.</th>
               <th>Student Name</th>
+              <th>Gender</th>
               <th>Department</th>
               <th>Program</th>
               <th class="text-center">Percentage</th>
@@ -159,6 +124,7 @@ require __DIR__ . '/../includes/navbar.php';
                 <td><?= $r['rank_no'] ?></td>
                 <td><?= e($r['form_no']) ?></td>
                 <td><?= e($r['student_name']) ?></td>
+                <td><?= e($r['gender']) ?></td>
                 <td><?= e($r['department_name']) ?></td>
                 <td><?= e($r['program_name']) ?></td>
                 <td class="text-center"><?= number_format($r['percentage'], 2) ?></td>

@@ -35,5 +35,23 @@ if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
+// ------------------------------------------------------------
+// Email / SMTP settings — fill these in to enable outgoing email
+// (merit-list notifications, selection confirmations, etc.)
+// Leave SMTP_HOST empty to disable email sending (pages will
+// still work, emails are just skipped and logged).
+// ------------------------------------------------------------
+define('SMTP_HOST', '');              // e.g. 'smtp.gmail.com'
+define('SMTP_PORT', 587);             // 587 = STARTTLS, 465 = SSL
+define('SMTP_ENCRYPTION', 'tls');     // 'tls', 'ssl', or ''
+define('SMTP_USERNAME', '');          // full email address
+define('SMTP_PASSWORD', '');          // app password (not your normal password, for Gmail)
+define('SMTP_FROM_EMAIL', 'noreply@hmlgs.local');
+define('SMTP_FROM_NAME', 'HMLGS - Hostel Merit List System');
+
+// Base URL students/admin use to reach this system (used in emails)
+define('SITE_URL', 'http://localhost' . BASE_URL);
+
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/mailer.php';

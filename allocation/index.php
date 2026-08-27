@@ -25,6 +25,28 @@ $selectedHostelId = isset($_GET['hostel_id']) && $_GET['hostel_id'] !== ''
     ? (int)$_GET['hostel_id']
     : ($hostels[0]['id'] ?? null);
 
+function send_selection_email(PDO $pdo, $appId, $hostelId) {
+    $stmt = $pdo->prepare(
+        "SELECT a.student_name, a.email, h.hostel_name
+         FROM hostel_applications a
+         LEFT JOIN hostels h ON h.id = ?
+         WHERE a.id = ?"
+    );
+    $stmt->execute([$hostelId, $appId]);
+    $info = $stmt->fetch();
+    if (!$info || empty($info['email'])) return false;
+
+    $subject = 'Hostel Seat Selection Confirmation - ' . APP_NAME;
+    $body = '<p>Dear ' . e($info['student_name']) . ',</p>'
+          . '<p>Congratulations! You have been <strong>selected</strong> for a hostel seat'
+          . ($info['hostel_name'] ? ' at <strong>' . e($info['hostel_name']) . '</strong>' : '') . '.</p>'
+          . '<p>Please log in to the student portal for full details:</p>'
+          . '<p><a href="' . SITE_URL . 'auth/student_login.php">' . SITE_URL . 'auth/student_login.php</a></p>'
+          . '<p>Use your CNIC / B-Form number as both the username and password.</p>'
+          . '<p>Regards,<br>' . e(APP_NAME) . '</p>';
+    return send_email($info['email'], $info['student_name'], $subject, $body);
+}
+
 // ------------------------------------------------------------
 // Actions: allocate one, waitlist one, cancel one, auto-allocate
 // ------------------------------------------------------------
@@ -95,6 +117,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->prepare("INSERT INTO application_status_history (application_id, old_status, new_status, changed_by, remarks) VALUES (?,?,?,?,?)")
             ->execute([$appId, $oldStatus, $newAppStatus, current_user_id(), 'Hostel allocation: ' . $allocStatus]);
         audit_log($pdo, 'Hostel allocation', 'allocation', $appId, "{$allocStatus} - hostel #{$postHostelId}");
+
+        if ($allocStatus === 'Selected') {
+            send_selection_email($pdo, $appId, $postHostelId);
+        }
+
         flash_set('success', 'Application ' . strtolower($allocStatus) . '.');
     } elseif ($action === 'cancel_one') {
         $appId = (int)$_POST['application_id'];
@@ -142,6 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $insHist = $pdo->prepare("INSERT INTO application_status_history (application_id, old_status, new_status, changed_by, remarks) VALUES (?, 'General Merit', ?, ?, ?)");
 
         $rank = 1;
+        $selectedAppIds = [];
         $pdo->beginTransaction();
         try {
             foreach ($candidates as $appId) {
@@ -149,6 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $status = 'Selected';
                     $remaining--;
                     $selected++;
+                    $selectedAppIds[] = $appId;
                 } else {
                     $status = 'Waiting';
                     $waitlisted++;
@@ -164,7 +193,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             audit_log($pdo, 'Auto-allocate', 'allocation', null, "{$selected} selected, {$waitlisted} waitlisted for hostel #{$postHostelId}");
             $pdo->commit();
-            flash_set('success', "Auto-allocation complete: {$selected} selected, {$waitlisted} placed on waiting list.");
+
+            $emailed = 0;
+            foreach ($selectedAppIds as $appId) {
+                if (send_selection_email($pdo, $appId, $postHostelId)) $emailed++;
+            }
+
+            flash_set('success', "Auto-allocation complete: {$selected} selected, {$waitlisted} placed on waiting list. {$emailed} confirmation email(s) sent.");
         } catch (Exception $ex) {
             $pdo->rollBack();
             flash_set('error', 'Auto-allocation failed: ' . $ex->getMessage());
